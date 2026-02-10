@@ -10,6 +10,12 @@ class Settings(BaseSettings):
     redis_url: str
     use_webhook: bool = False
     admin_ids: list[int] = []
+    log_level: str = "INFO"
+    rate_limit_limit: int = 5
+    rate_limit_period: float = 1.0
+    rate_limit_notify: bool = True
+    command_rate_limit_limit: int = 3
+    command_rate_limit_period: float = 5.0
 
     @field_validator("admin_ids", mode="before")
     @classmethod

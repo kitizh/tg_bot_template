@@ -33,6 +33,8 @@ class Container:
 
         log.info("Initializing container resources")
         redis_client = redis.Redis.from_url(settings.redis_url)
+        from bot.rate_limits import init_default_limiter
+        init_default_limiter(redis_client)
         storage = RedisStorage(
             redis=redis_client,
             # сколько живет состояние пользователя в секундах

@@ -9,6 +9,9 @@ from bot.core.config import Settings
 from bot.core.container import Container
 from bot.middlewares.container import ContainerMiddleware
 from bot.middlewares.db_session import DbSessionMiddleware
+from bot.middlewares.error_handler import ErrorHandlerMiddleware
+from bot.middlewares.logging import LoggingMiddleware
+from bot.middlewares.rate_limit import RateLimitMiddleware
 from bot.middlewares.user_activity import UserActivityMiddleware
 
 import logging
@@ -32,6 +35,14 @@ class AppFactory:
         for router in self.routers:
             dispatcher.include_router(router)
         log.info(
+            "Rate limit config: msg=%s/%ss cmd=%s/%ss notify=%s",
+            self.settings.rate_limit_limit,
+            self.settings.rate_limit_period,
+            self.settings.command_rate_limit_limit,
+            self.settings.command_rate_limit_period,
+            self.settings.rate_limit_notify,
+        )
+        log.info(
             "Dispatcher configured with routers and middleware. Routers: %s",
             [router.name for router in self.routers],
         )
@@ -39,7 +50,10 @@ class AppFactory:
 
     def _setup_middlewares(self, dispatcher: Dispatcher, container: Container) -> None:
         """Подключить базовые middleware приложения."""
+        dispatcher.update.middleware(ErrorHandlerMiddleware())
+        dispatcher.update.middleware(LoggingMiddleware())
         dispatcher.update.middleware(ContainerMiddleware(container))
+        dispatcher.update.middleware(RateLimitMiddleware())
         if container.db_session_factory is not None:
             dispatcher.update.middleware(DbSessionMiddleware(container.db_session_factory))
             dispatcher.update.middleware(UserActivityMiddleware())

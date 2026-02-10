@@ -4,14 +4,10 @@ from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable
 
 from aiogram.dispatcher.middlewares.base import BaseMiddleware
-from aiogram.types import Message, Update
+from aiogram.types import Update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import logging
-
-from bot.models.user import User
-
-log = logging.getLogger(__name__)
+from bot.repositories.user import UserRepository
 
 
 class UserActivityMiddleware(BaseMiddleware):
@@ -20,36 +16,18 @@ class UserActivityMiddleware(BaseMiddleware):
     async def __call__(
         self,
         handler: Callable[[Any, dict[str, Any]], Awaitable[Any]],
-        event: Any,
+        event: Update,
         data: dict[str, Any],
     ) -> Any:
-        message: Message | None = None
-        if isinstance(event, Update):
-            message = event.message or event.edited_message
-        elif isinstance(event, Message):
-            message = event
+        message = event.message or event.edited_message
 
         if message and message.from_user:
             session: AsyncSession | None = data.get("db_session")
             if session is not None:
                 user_id = message.from_user.id
                 username = message.from_user.username
+                repo = UserRepository(session)
                 now = datetime.now(timezone.utc)
-
-                user = await session.get(User, user_id)
-                if user is None:
-                    user = User(
-                        id=user_id,
-                        username=username,
-                        first_seen_at=now,
-                        last_seen_at=now,
-                    )
-                    session.add(user)
-                else:
-                    user.username = username
-                    user.last_seen_at = now
-
-                await session.commit()
-                log.debug("User activity updated: %s", user_id)
-
+                user = await repo.get_or_create_user(user_id=user_id, username=username, now=now)
+                await repo.last_user_activity(user, username=username, now=now)
         return await handler(event, data)

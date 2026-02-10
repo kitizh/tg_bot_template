@@ -6,10 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.common.handlers import BaseHandlers
 from bot.filters.is_admin import IsAdmin
-
-import logging
-
-log = logging.getLogger(__name__)
+from bot.filters.rate_limit import RateLimit
 
 
 class AdminHandlers(BaseHandlers):
@@ -18,7 +15,6 @@ class AdminHandlers(BaseHandlers):
     def register(self) -> None:
         @self.router.message(Command("admin"), IsAdmin())
         async def admin_panel(message: Message) -> None:
-            log.info("Admin /admin: %s", message.from_user.id if message.from_user else None)
             await message.answer(
                 "Админ‑панель доступна ✅\n"
                 "Команды: /stats, /broadcast"
@@ -29,7 +25,6 @@ class AdminHandlers(BaseHandlers):
             message: Message,
             db_session: AsyncSession | None = None,
         ) -> None:
-            log.info("Admin /stats: %s", message.from_user.id if message.from_user else None)
             user_id = message.from_user.id if message.from_user else 0
             db_enabled = db_session is not None
             await message.answer(
@@ -39,9 +34,12 @@ class AdminHandlers(BaseHandlers):
                 "Подключите БД для расширенной статистики."
             )
 
-        @self.router.message(Command("broadcast"), IsAdmin())
+        @self.router.message(
+            Command("broadcast"),
+            IsAdmin(),
+            RateLimit(key_prefix="rate:cmd:broadcast", limit=1, per=30, notify=True),
+        )
         async def admin_broadcast(message: Message) -> None:
-            log.info("Admin /broadcast: %s", message.from_user.id if message.from_user else None)
             await message.answer(
                 "Рассылка (заготовка).\n"
                 "Добавим в следующем шаге: выбор аудитории, очередь и отчёт."

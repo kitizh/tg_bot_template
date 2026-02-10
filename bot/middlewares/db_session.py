@@ -6,9 +6,6 @@ from aiogram.dispatcher.middlewares.base import BaseMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.core.types import MiddlewareData
-import logging
-
-log = logging.getLogger(__name__)
 
 class DbSessionMiddleware(BaseMiddleware):
     """Открывает DB-сессию на update и закрывает после обработки."""
@@ -22,7 +19,13 @@ class DbSessionMiddleware(BaseMiddleware):
         event: Any,
         data: MiddlewareData,
     ) -> Any:
-        log.debug("Opening DB session for update")
         async with self._session_factory() as session:  # type: AsyncSession
             data["db_session"] = session
-            return await handler(event, data)
+            try:
+                result = await handler(event, data)
+            except Exception:
+                await session.rollback()
+                raise
+            else:
+                await session.commit()
+                return result

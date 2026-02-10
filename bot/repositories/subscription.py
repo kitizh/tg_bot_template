@@ -33,14 +33,6 @@ class SubscriptionRepository(BaseRepository[Subscription]):
             await self._session.flush()
         return subscription
 
-    async def set_expires_at(self, user_id: int, expires_at: datetime | None) -> None:
-        subscription = await self.get_by_user_id(user_id)
-        if subscription is None:
-            subscription = Subscription(user_id=user_id, expires_at=expires_at)
-            await self.add(subscription)
-        else:
-            subscription.expires_at = expires_at
-            await self._session.flush()
 
     async def is_active(self, user_id: int, now: datetime | None = None) -> bool:
         subscription = await self.get_by_user_id(user_id)
